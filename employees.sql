@@ -5,6 +5,7 @@ CREATE SCHEMA IF NOT EXISTS `EmployeesDB` DEFAULT CHARACTER SET utf8mb4 COLLATE 
 
 USE `EmployeesDB`;
 
+DROP TABLE IF EXISTS `Employees`;
 CREATE TABLE `Employees` (
 `EMPLOYEE_ID` INT AUTO_INCREMENT,
 `FIRST_NAME` VARCHAR(20) DEFAULT NULL,
@@ -129,4 +130,231 @@ INSERT INTO `Employees` VALUES (100,'Steven','King','SKING','515.123.4567','1987
 (205,'Shelley','Higgins','SHIGGINS','515.123.8080','1987-09-30','AC_MGR',12000.00,0.00,101,110),
 (206,'William','Gietz','WGIETZ','515.123.8181','1987-10-01','AC_ACCOUNT',8300.00,0.00,205,110);
 
-SELECT * FROM Employees;
+SELECT * FROM Employees; -- 102 rows start
+
+-- 1.
+
+SELECT FIRST_NAME, SALARY
+FROM Employees
+WHERE SALARY < 3000.00; -- 24 tuples (re launch after UPDATE query for changes) -> 17 after
+
+UPDATE Employees
+SET Salary = Salary * 1.1
+WHERE SALARY < 3000.00;
+
+-- 2.
+
+SELECT *
+FROM Employees
+WHERE MANAGER_ID = 100 AND DEPARTMENT_ID = 50;
+
+DELETE
+FROM Employees
+WHERE MANAGER_ID = 100 AND DEPARTMENT_ID = 50;
+
+-- The select is just to check if it has worked properly. We can see that it did. Also another thing to note is that
+-- in the DDL here our only CONSTRAINT is a PRIMARY KEY. As there are no FOREIGN KEYS, we do not have to worry about
+-- enabling/disabling to not compromise integrity
+
+-- 3.
+
+SELECT
+    COMMISSION_PCT,
+    JOB_ID,
+    HIRE_DATE
+FROM Employees
+WHERE JOB_ID LIKE 'SA_%'
+    AND HIRE_DATE BETWEEN '1987-08-01' AND '1987-08-31'
+ORDER BY HIRE_DATE ASC;
+
+UPDATE Employees
+SET COMMISSION_PCT = COMMISSION_PCT + 0.05
+WHERE JOB_ID LIKE 'SA_%'
+    AND HIRE_DATE BETWEEN '1987-08-01' AND '1987-08-31';
+
+-- 4.
+
+SELECT concat(LAST_NAME, ', ', FIRST_NAME) AS 'Employee Name', PHONE_NUMBER AS 'Employee Phone Number', SALARY AS 'Salary'
+FROM Employees
+WHERE SALARY < 3000.00 AND JOB_ID = 'ST_CLERK'
+ORDER BY SALARY DESC;
+
+-- 5.
+
+SELECT
+    FIRST_NAME AS 'First Name',
+    LAST_NAME AS 'Last Name',
+    HIRE_DATE AS 'Hire Date'
+FROM Employees
+WHERE HIRE_DATE BETWEEN '1987-07-10' AND '1987-09-10' AND
+    DEPARTMENT_ID IN (
+        SELECT DEPARTMENT_ID
+        FROM Employees
+        WHERE DEPARTMENT_ID = 50
+        )
+ORDER BY HIRE_DATE ASC;
+
+SELECT
+    FIRST_NAME AS 'First Name',
+    LAST_NAME AS 'Last Name',
+    HIRE_DATE AS 'Hire Date'
+FROM Employees
+WHERE DEPARTMENT_ID = 50 AND
+    HIRE_DATE BETWEEN '1987-07-10' AND '1987-09-10'
+ORDER BY HIRE_DATE ASC;
+
+-- Both versions of the Query can be used. They produce the same result. However the second one is a bit easier
+-- to understand
+
+-- 6.
+
+SELECT FIRST_NAME AS 'Employee Name', count(*) AS 'Quantity'
+FROM Employees
+WHERE SALARY > 10000.00
+GROUP BY FIRST_NAME
+ORDER BY 'Quantity' ASC;
+
+SELECT count(*) AS 'How many people earn more than $10000.00'
+FROM Employees
+WHERE SALARY > 10000.00;
+
+/*
+This Query shows the First Name of the Employees who earn more than 10000.00 and also counts
+how many people with that same First Name earn that amount (thanks to the Group By).
+Since this is a small database, we don't have many names repeated. And even less people with a salary
+higher than 10000.00 who also happen to share the same First Name.
+
+If we only wanted to know how many people earn that amount, then the second Query would be the answer.
+
+The INSERT below is there to prove that the GROUP BY Query works. If we are to INSERT a person with the same
+First Name as one of the people that already exists with a Salary of > 10000.00, it will return a counter of 2
+Then the DELETE is there to not mess up the database :)
+
+INSERT INTO `Employees` VALUES (207,'Steven','Testing','Piss','525.123.4567','1988-06-17','AD_PRES',69000.00, 0.00, 0,90);
+
+DELETE
+FROM Employees
+WHERE EMPLOYEE_ID = 207;
+*/
+
+-- 7.
+
+SELECT
+    DEPARTMENT_ID AS 'Department ID',
+    sum(SALARY) AS 'Sum Salaries by Department',
+    avg(SALARY) AS 'Average Salaries by Department'
+FROM employees
+GROUP BY DEPARTMENT_ID
+ORDER BY DEPARTMENT_ID DESC ;
+
+-- 8.
+
+SELECT
+    JOB_ID AS 'Type of Work',
+    min(SALARY) AS 'Minimum Salary',
+    max(SALARY) AS 'Maximum Salary'
+FROM Employees
+WHERE JOB_ID NOT IN (
+    SELECT JOB_ID
+    FROM Employees
+    WHERE JOB_ID IN (
+        'IT_PROG',
+        'SA_MAN',
+        'SA_REP'
+        )
+)
+GROUP BY JOB_ID
+ORDER BY JOB_ID;
+
+-- You could also do a WHERE JOB_ID = ... but would have to repeat that as many times as JOB_ID's you want to
+-- not include. So doing it with a IN is a bit prettier
+
+-- 9.
+
+SELECT
+    JOB_ID AS 'Type of Work',
+    avg(SALARY) AS 'Average_Salary'
+FROM Employees
+GROUP BY JOB_ID
+HAVING Average_Salary > 5000.00
+ORDER BY 'Average Salary' ASC;
+
+/*
+Ok few things here. HAVING is used after the GROUP BY clause. It basically a filter, just like WHERE
+but applied after the GROUP BY
+
+Also take into account that if we want to reference an alias using HAVING, it must be without '' and if it
+contains spaces then replace them with _
+*/
+
+-- 10.
+
+SELECT min(SALARY) AS 'Min', -- 2310
+       max(SALARY) AS 'Max', -- 24000
+       avg(SALARY) AS 'Average' -- 6482.35
+FROM Employees;
+
+SELECT
+    FIRST_NAME AS 'First Name',
+    SALARY AS 'Salary'
+FROM Employees
+WHERE Salary = (
+    SELECT avg(SALARY)
+    FROM Employees
+    );
+
+SELECT
+    EMPLOYEE_ID AS 'Employee ID',
+    concat(LAST_NAME, ', ', FIRST_NAME) AS 'Employee Name',
+    SALARY AS 'Salary'
+FROM Employees
+WHERE Salary >= (
+    SELECT avg(SALARY)
+    FROM Employees
+);
+
+SELECT
+    EMPLOYEE_ID AS 'Employee ID',
+    concat(LAST_NAME, ', ', FIRST_NAME) AS 'Employee Name',
+    SALARY AS 'Salary'
+FROM Employees
+WHERE Salary <= (
+    SELECT avg(SALARY)
+    FROM Employees
+);
+
+
+SELECT COUNT(*) AS 'Employees with Salary Above Average'
+FROM Employees
+WHERE SALARY > (
+    SELECT AVG(SALARY)
+    FROM Employees);
+
+SELECT COUNT(*) AS 'Employees with Salary Below Average'
+FROM Employees
+WHERE SALARY < (
+    SELECT AVG(SALARY)
+    FROM Employees);
+
+
+-- With the first Query with show both the lowest, highest and also as an extra the average salaries between
+-- all of the employees
+
+-- Then with the second Query we filter who has a Salary that is equivalent of the average of all of the salaries
+-- in the whole company
+
+-- With the third and fourth Querys we filter who has a Salary that is above/below the average of all the salaries
+-- in the company
+
+-- Finally the 5th and 6th Querys shows how many employees have a salary above/below the average. This could already be seen
+-- in the third and fourth Querys (number of tuples), but this way it is a bit clearer
+
+-- 11.
+
+SELECT
+    JOB_ID AS 'Type of Work',
+    sum(SALARY) AS 'Sum of Salaries by Type of Work',
+    avg(SALARY) AS 'Average of Salaries by Type of Work'
+FROM Employees
+GROUP BY JOB_ID
+ORDER BY JOB_ID;

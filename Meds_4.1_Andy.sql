@@ -99,29 +99,30 @@ VALUES
 
 SELECT * FROM `REPARTOS`;
 
--- 2. Medicamentos Precio < 3
+-- 1. Medicamentos Precio < 3
 
 SELECT `Nombre`
 FROM `MEDICAMENTOS`
 WHERE `Precio`  < 3.00;
 
--- 3. Farmacias -> Madrid
+-- 2. Farmacias -> Madrid
 
 SELECT `Nombre`, `Provincia`
 FROM `FARMACIAS`
 WHERE `Provincia` LIKE '%Madrid';
 
--- 4. Repartidores Sueldo >= 1500
+-- 3. Repartidores Sueldo >= 1500
 
 SELECT `Nombre`, `Sueldo`
 FROM `REPARTIDORES`
 WHERE `Sueldo` >= 1500.00;
 
--- 5. Fechas REPARTOS del REPARTIDOR Juan García López
+-- 4. Fechas REPARTOS del REPARTIDOR Juan García López
 
 SELECT `NIF`, `Nombre`
 FROM `REPARTIDORES`
-WHERE `Nombre` = 'JUAN' AND `Apellido1` = 'GARCÍA'; -- Primero buscamos su DNI para buscarlo luego en REPARTOS. Pero no es lo más óptimo
+WHERE `Nombre` = 'JUAN' AND `Apellido1` = 'GARCÍA';
+-- Primero buscamos su DNI para buscarlo luego en REPARTOS. Pero no es lo más óptimo
 
 SELECT `NIF_Repartidor`, `Fecha`
 FROM `REPARTOS`
@@ -130,7 +131,7 @@ WHERE `NIF_Repartidor` = (
     FROM `REPARTIDORES` 
     WHERE `Nombre` = 'JUAN' AND `Apellido1` = 'GARCÍA'); -- Es la forma más óptima de buscar el NIF
 
--- 6. Nombre de las FARMACIAS donde ha repartido Juan García López
+-- 5. Nombre de las FARMACIAS donde ha repartido Juan García López
 
 SELECT `CodFarmacia`, `Nombre`
 FROM `FARMACIAS`
@@ -144,7 +145,7 @@ WHERE `CodFarmacia` IN (
 
 -- De no usar el IN el subquery nos retornaría más de una fila (porque ha repartido en más de una farmacia
 
--- 7. Nombre de los MEDICAMENTOS que nunca se han repartido en MÁLAGA
+-- 6. Nombre de los MEDICAMENTOS que nunca se han repartido en MÁLAGA
 
 SELECT `Nombre`
 FROM `MEDICAMENTOS`
@@ -159,7 +160,7 @@ WHERE `CodMedicamento` NOT IN (
 -- O sea: muéstrame el nombre de los medicamentos cuyo código NO esté en la subquery de los códigos de medicamento de la tabla
 -- repartos donde se haya repartido en las farmacias con el código donde la provincia sea Málaga
 
--- 8. Nombre de los MEDICAMENTOS que sólo se haya repartido en MÁLAGA
+-- 7. Nombre de los MEDICAMENTOS que sólo se haya repartido en MÁLAGA
 
 /*
 
@@ -196,8 +197,19 @@ WHERE `CodMedicamento` IN (
 		WHERE `CodFarmacia` IN (
 			SELECT `CodFarmacia`
 			FROM `FARMACIAS`
-			WHERE `Provincia` <> 'MÁLAGA'))); -- Y además luego excluímos al resto de provincias. Así sacamos los medicamentos que sólo se hayan repartido en Málaga
-            
+			WHERE `Provincia` <> 'MÁLAGA')));
+-- Y además luego excluímos al resto de provincias. Así sacamos los medicamentos que sólo se hayan repartido en Málaga
+
+-- 8. Número de repartos realizados por “Juan García López”
+
+SELECT sum(Cantidad) AS 'Número de repartos hechos por Juan García López'
+FROM REPARTOS
+WHERE REPARTOS.NIF_Repartidor = (
+    SELECT NIF
+    FROM REPARTIDORES
+    WHERE Nombre = 'Juan' AND Apellido1 = 'García' AND Apellido2 = 'López'
+    );
+
 -- 9. Nombre de los MEDICAMENTOS que se hayan repartido en MADRID y Barcelona
 
 SELECT `Nombre`
@@ -229,7 +241,8 @@ WHERE `CodMedicamento` IN (
         FROM `FARMACIAS` 
         WHERE `Provincia` = 'MADRID' OR `Provincia` = 'BARCELONA'));
 
--- Con UNION es básicamente lo mismo que se hizo antes pero AND -> UNION (y -> o). En este caso sí se puede concatenar con un OR en la misma subquery porque es uno u otro; no ambos a la vez
+-- Con UNION es básicamente lo mismo que se hizo antes pero AND -> UNION (y -> o).
+-- En este caso sí se puede concatenar con un OR en la misma subquery porque es uno u otro; no ambos a la vez
 
 SELECT `Nombre`
 FROM `MEDICAMENTOS`
@@ -270,7 +283,8 @@ WHERE `CodMedicamento` IN (
 	GROUP BY `CodMedicamento`
 	HAVING count(DISTINCT `CodFarmacia`) > 2);
 
--- El DISTINCT aquí está haciendo que se busque instancias en que se han repartido medicamentos en más de 2 farmacias DIFERENTES en Almería. Por tanto aunque un medicamento se reparta en la misma farmacia 3 veces, no saldría
+-- El DISTINCT aquí está haciendo que se busque instancias en que se han repartido medicamentos en más de 2
+-- farmacias DIFERENTES en Almería. Por tanto aunque un medicamento se reparta en la misma farmacia 3 veces, no saldría
 
 -- 13. Buscar el repartidor que más REPARTOS ha realizado
 
@@ -285,7 +299,9 @@ WHERE `NIF` = (
     FROM `REPARTOS`
     GROUP BY `NIF_Repartidor`
     ORDER BY count(*) DESC
-    LIMIT 1); -- El LIMIT 1 se ha de poner porque de lo contrario da error (devuelve más de 1 tupla). Además, queremos el máximo, el que más
+    LIMIT 1);
+-- El LIMIT 1 se ha de poner porque de lo contrario da error (devuelve más de 1 tupla).
+-- Además, queremos el máximo, el que más
 
 -- 14. Sueldo promedio de los repartidores de Madrid
 
@@ -300,10 +316,13 @@ WHERE `Provincia` = 'Madrid';  -- Importante: repartidores DE Madrid
 Para buscar sólo los medicamentos que se hayan distribuido en TODAS las farmacias de Santander, tenemos que hacer una igualación en el WHERE
 inicial para comparar. Tenemos 2 lados pues:
 
-	1. Primero buscaremos los medicamentos que se han repartido en las farmacias de Santander. Es importante buscar y contar sólo las farmacias
-    diferentes (de ahí el DISTINCT). El WHERE de este primer subquery busca sólo los medicamentos que coincidan tanto en medicamentos como en
+	1. Primero buscaremos los medicamentos que se han repartido en las farmacias de Santander.
+    Es importante buscar y contar sólo las farmacias diferentes (de ahí el DISTINCT).
+    El WHERE de este primer subquery busca sólo los medicamentos que coincidan tanto en medicamentos como en
     la farmacia Y que estén en Santander en la tabla FARMACIAS
-    2. Luego el otro lado de la igualación lo que hace es simplemente contar la cantidad de farmacias que hay en Santander y mira si son iguales
+
+    2. Luego el otro lado de la igualación lo que hace es simplemente contar la cantidad de farmacias que hay en Santander
+    y mira si son iguales
 
 */
 
@@ -316,23 +335,41 @@ WHERE (
     AND `CodFarmacia` IN (
         SELECT `CodFarmacia`
 		FROM `FARMACIAS`
-        WHERE `Provincia` = 'SANTANDER')) 
+        WHERE `Provincia` = 'SANTANDER'))
 = (
     SELECT COUNT(*)
     FROM `FARMACIAS`
-    WHERE `Provincia` = 'SANTANDER'); -- Está mal :(
+    WHERE `Provincia` = 'SANTANDER');
+
+-- Está mal :(
 
 -- 16. Valor total de la mercancía distribuída por Luis García López
 
-SELECT * FROM `Repartos`;
-SELECT * FROM `Repartidores`;
+SELECT sum(m.Precio * r.Cantidad) AS 'Valor Mercancía'
+FROM MEDICAMENTOS m
+INNER JOIN REPARTOS r
+     ON m.CodMedicamento = r.CodMedicamento
+INNER JOIN REPARTIDORES r2
+     ON r.NIF_Repartidor = r2.NIF
+WHERE r2.Nombre = 'LUIS' AND r2.Apellido1 = 'GARCÍA' AND r2.Apellido2 = 'LÓPEZ';
 
 
+-- 17. Hallar el nombre del medicamente del que más unidades se han vendido
 
+CREATE VIEW V_Medic_Unidades (CodMedicamento, Unidades) AS
+SELECT CodMedicamento,SUM(Cantidad)
+FROM Repartos
+GROUP BY CodMedicamento;
 
+SELECT Nombre, sum(r.Cantidad) AS 'Total vendido'
+FROM MEDICAMENTOS m
+INNER JOIN REPARTOS r
+    ON m.CodMedicamento = r.CodMedicamento
+GROUP BY m.CodMedicamento
+ORDER BY sum(r.Cantidad) DESC;
 
+-- Primero debemos de agrupar los medicamentos por el código; pues es lo que queremos buscar realmente. Luego
+-- consultaremos la cantidad de veces que se han vendido. Esto lo encontramos en Repartos. Como ambos tienen en
+-- común el código de atributo, podemos agrupar las tuplas para así sacar el resultado que esperamos, y ordenado
 
-
-
-
-
+-- Podemos ver cuántos medicamentos se han vendido en total de cada uno. Hay 2 que coinciden con el máximo

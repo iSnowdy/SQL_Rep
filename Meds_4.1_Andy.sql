@@ -377,7 +377,7 @@ WHERE r2.Nombre = 'LUIS' AND r2.Apellido1 = 'GARCÍA' AND r2.Apellido2 = 'LÓPEZ
 
 -- 17. Hallar el nombre del medicamente del que más unidades se han vendido
 
-CREATE VIEW V_Medic_Unidades (CodMedicamento, Unidades) AS
+CREATE VIEW Vista_Test (CodMedicamento, Unidades) AS
 SELECT CodMedicamento,SUM(Cantidad)
 FROM Repartos
 GROUP BY CodMedicamento;
@@ -388,6 +388,8 @@ INNER JOIN REPARTOS r
     ON m.CodMedicamento = r.CodMedicamento
 GROUP BY m.CodMedicamento
 ORDER BY sum(r.Cantidad) DESC;
+
+DROP VIEW Vista_Test;
 
 -- Primero debemos de agrupar los medicamentos por el código; pues es lo que queremos buscar realmente. Luego
 -- consultaremos la cantidad de veces que se han vendido. Esto lo encontramos en Repartos. Como ambos tienen en

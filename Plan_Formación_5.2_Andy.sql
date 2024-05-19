@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS `PRERREQUISITOS` (
     CONSTRAINT FK_RefCursoARequisitoPrerrequisitosCursos FOREIGN KEY (`RefCursoARequisito`) REFERENCES `CURSOS`(`RefCurso`))
 ENGINE = InnoDB;
 
+SELECT * FROM CURSOS;
+SELECT * FROM EMPLEADOS;
+SELECT * FROM EDICIONES;
+SELECT * FROM TELEFONOS;
+SELECT * FROM CAPACITACIONES;
+SELECT * FROM PRERREQUISITOS;
+SELECT * FROM MATRICULACIONES;
+-- SELECT * FROM MATRICULAS;
+
 -- 3. En la relación CURSOS, después de RefCurso, añadir un nuevo atributo cuya descripción sea la siguiente:
 -- Título | VARCHAR | max 25
 
@@ -148,6 +157,21 @@ INSERT INTO EDICIONES VALUE
 (103, 3, curdate(), 'CESUR', 5015.53, '648972123M'),
 (104, 4, curdate(), 'CESUR', 99999.99, '856256124B');
 
+-- Hacemos que uno de los empleados haya impartido 10 cursos o más
+
+INSERT INTO EDICIONES VALUES
+(105, 2, '1990-01-01', 'CESUR', 666, '563124853S'),
+(106, 2, '1992-05-02', 'CESUR', 5864, '563124853S'),
+(107, 2, '1999-01-05', 'CESUR', 6663, '563124853S'),
+(108, 2, '1998-11-12', 'CESUR', 6544, '563124853S'),
+(109, 2, '1997-12-04', 'CESUR', 3213, '563124853S'),
+(110, 4, '1996-11-12', 'CESUR', 545, '563124853S'),
+(111, 2, '1995-05-24', 'CESUR', 2342, '563124853S'),
+(112, 2, '1994-06-25', 'CESUR', 212, '563124853S'),
+(113, 2, '1993-07-15', 'CESUR', 111, '563124853S'),
+(114, 2, '1992-08-14', 'CESUR', 222, '563124853S'),
+(115, 3, '1991-09-12', 'CESUR', 414, '563124853S');
+
 INSERT INTO TELEFONOS VALUE
 ('563124853S', 681534369),
 ('648972123M', 680458976),
@@ -172,66 +196,157 @@ INSERT INTO MATRICULACIONES VALUE
 ('546369458X', 104),
 ('876154687H', 101);
 
-SELECT * FROM CURSOS;
-SELECT * FROM EMPLEADOS;
-SELECT * FROM EDICIONES;
-SELECT * FROM TELEFONOS;
-SELECT * FROM CAPACITACIONES;
-SELECT * FROM PRERREQUISITOS;
-SELECT * FROM MATRICULACIONES;
--- SELECT * FROM MATRICULAS;
 
 -- 10. Aumentar en 10 horas la duración de los cursos en cuyo título aparece “BASES DE DATOS”
+-- 100 / 60 -> 110 / 70
 
-
-
-
-
+UPDATE CURSOS
+SET Duracion = Duracion + 10
+WHERE Titulo LIKE '%BASES DE DATOS';
 
 
 -- 11. Aumentar el sueldo en un 10% a los empleados que han impartido más de diez cursos (pueden ser de ediciones diferentes),
 -- a. Utiliza GROUP BY en la tabla Ediciones para saber qué NIF_Docente ha impartido 2 o más cursos.
 -- Luego aplica el UPDATE con un sub SELECT de lo anterior.
 
+SELECT NIF_Docente
+FROM EDICIONES
+GROUP BY NIF_Docente
+HAVING count(RefCurso) > 10;
 
-
-
-
-
-
-
+UPDATE EMPLEADOS
+SET Salario = Salario * 1.1
+WHERE NIF IN (
+    SELECT NIF_Docente
+    FROM EDICIONES
+    GROUP BY NIF_Docente
+    HAVING count(RefCurso) > 10
+    );
 
 -- 12. Eliminar los cursos que no tienen ninguna edición (tiene que haber, al menos una eliminación)
 -- a. Emplea NOT IN (SELECT … FROM Ediciones)
 
+SELECT * FROM CURSOS;
+SELECT EDICIONES.RefCurso FROM EDICIONES;
 
+SELECT RefCurso
+FROM CURSOS
+WHERE RefCurso NOT IN (
+    SELECT RefCurso
+    FROM EDICIONES
+    ); -- 1 y 5
 
+/*
+Vemos que el Curso 1, uno de los cursos que no se imparten, es un prerrequisito obligatorio en la relación
+PRERREQUISITOS. Por tanto por la integridad referencial nos da un error por FK.
+Pero esto realmente no nos influye en nada realmente por ahora. El curso luego se podría volver a añadir cuando
+se imparta. No hace falta eliminar la tupla de PRERREQUISITOS. Pero algo debemos hacer para tratar con la integridad
+referencial.
 
+Hay varias formas de aplacar este problema. Entre ellas:
 
+1. Hacer un ALTER TABLE a PRERREQUISITOS, DROP a la FK que nos está dando problemas y luego otro
+ALTER TABLE para modificar la FK de forma que haga un ON DELETE CASCADE
+2. Hacer un SET 0 y 1 a la FOREIGN KEY. Esto, a diferencia de la forma previa, desactivará TODAS las FK
+de la base de datos; no sólo la de PRERREQUISITOS
+3. Borrar la tupla conflictiva de PRERREQUISITOS
 
+Optaremos por la opción 1. La opción 2 es un overkill. No necesitamos realmente desactivar TODAS las FK
+para hacer un único DELETE. La opción 3 en este caso a lo mejor sí es posible, pero con mayores cantidades
+de datos es muy impráctico. También hemos de estar 100% seguros de cuál es la tupla conflictiva. Además por lo general
+en una base de datos nunca se recomienda eliminar datos
 
+La opción 1 es la más válida y correcta en este caso. Para añadir una capa extra de seguridad, envolveremos las Querys
+en una transacción. Esto nos asegurará que todas las Querys dentro de la misma se ejecuten correctamente o no se ejecute
+ninguna. Además es posible hacerle un ROLLBACK.
+
+*/
+
+START TRANSACTION;
+
+    ALTER TABLE PRERREQUISITOS
+    DROP FOREIGN KEY FK_RefCursoARequisitoPrerrequisitosCursos; -- Desactivamos la FK primero
+
+    ALTER TABLE PRERREQUISITOS
+    ADD CONSTRAINT FK_ONDELETE_RefCursoARequisitoPrerrequisitosCursos
+    FOREIGN KEY (RefCursoARealizar)
+    REFERENCES CURSOS(RefCurso)
+    ON DELETE CASCADE; -- Ahora si se hace un DELETE que hace referencia aquí, arrastra consigo la tupla
+
+    DELETE
+    FROM CURSOS
+    WHERE RefCurso NOT IN (
+        SELECT RefCurso
+        FROM EDICIONES
+        ); -- el DELETE en sí
+
+COMMIT;
 
 -- 13. Aumentar el sueldo en un 15% a los empleados que han impartido cursos en cuyo título aparece “BASES DE DATOS”
 -- (tiene que haber al menos una actualización)
 -- a. Identifica los NIF_Docente que han impartido este curso con un SELECT de dos tablas (Cursos y Ediciones) y un LIKE
 -- b. Aplica UPDATE con un WHERE NIF IN (SELECT de lo anterior)
 
+SELECT NIF, Salario
+FROM EMPLEADOS
+WHERE NIF IN (
+    SELECT NIF_Docente
+    FROM EDICIONES
+    WHERE RefCurso = (
+        SELECT RefCurso
+        FROM CURSOS
+        WHERE Titulo LIKE '%BASES DE DATOS'
+        )
+    ); -- 100 y 7162.29 antes
 
+-- Seguimos el camino que podemos ver claramente en el diagrama generado por MySQL Workbench:
+    -- Nos interesa el NIF de la tabla Empleados. Pues es donde está el salario y de donde haremos el UPDATE.
+    -- A partir de aquí vemos cómo podemos enlazar las condiciones que nos piden: que haya impartido cursos con título
+    -- 'bases de datos'. Para poder llegar a los títulos, tendremos que terminar en la relación Cursos. Y la forma de
+    -- conectar EMPLEADOS con CURSOS es a través de Ediciones
 
+-- Tengo que bajarle el salario a uno de los NIF porqué sobrepasa el límite aaaaaaa
 
+UPDATE EMPLEADOS
+SET Salario = Salario - 2000
+WHERE NIF = '563124853S'; -- 5164 ahora no debería dar out of range al modificar otra vez el salario abajo
 
-
-
+UPDATE EMPLEADOS
+SET Salario = Salario * 1.5
+WHERE NIF IN (
+    SELECT NIF_Docente
+    FROM EDICIONES
+    WHERE RefCurso IN (
+        SELECT RefCurso
+        FROM CURSOS
+        WHERE Titulo LIKE '%BASES DE DATOS'
+    )
+);
 
 -- 14. Eliminar los cursos que en estos 10 años (WHERE Fecha >='2006-03-01' AND Fecha <= '2016-03-01') no se han
 -- celebrado ninguna edición. (puede no haber ninguna eliminación)
 -- a. Identifica los cursos con ediciones en esas fechas
 -- b. Elimínalos con NOT IN (SELECT de lo anterior)
 
+SELECT DISTINCT RefCurso -- El DISTINCT a lo mejor no hace falta? Porque lo que hace es evitar repeticiones
+FROM EDICIONES
+WHERE Fecha >= '2006-03-01' AND FECHA <= '2016-03-01';
 
+-- El DELETE nos da error por integridad referencial de la relación CAPACITACIONES. Podríamos volver a aplicar
+-- el método del ALTER TABLE de antes, o bien hacerlo de otra forma. Una forma más "bruta", que es setteando la FK
+-- a 0, es decir, desactivándola de todas las relaciones, y luego recuperándola a 1 (activándola)
 
+SET FOREIGN_KEY_CHECKS = 0;
 
+DELETE
+FROM CURSOS
+WHERE RefCurso NOT IN (
+    SELECT RefCurso
+    FROM EDICIONES
+    WHERE Fecha >= '2006-03-01' AND FECHA <= '2016-03-01'
+    );
 
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- 15. Aumentar un 10% la duración del curso en que más alumnos se han matriculado. (tiene que haber al menos una actualización).
 -- a. Crea una vista de la siguiente manera:
@@ -244,3 +359,34 @@ GROUP BY RefCurso;
 b. Utiliza MAX(numMatriculados)
 */
 
+-- Primero nos aseguramos de que haya varios matriculados en uno de los cursos
+
+INSERT INTO EMPLEADOS VALUES
+('875364234G', 'Joselito', 'Feix', NULL, NULL, 100, 'HOMBRE', 'ESTUDIANTE'),
+('457523510P', 'Babidi', 'Lapadi', NULL, NULL, 100, 'HOMBRE', 'ESTUDIANTE');
+
+
+INSERT INTO MATRICULACIONES VALUE
+('875364234G', 104),
+('875364234G', 101),
+('457523510P', 104);
+
+
+CREATE VIEW V_CursoMatriculados (RefCurso, numMatriculados) AS
+SELECT RefCurso, Count(*)
+FROM Matriculaciones M, Ediciones E
+WHERE M.CodEdicion = E.CodEdicion
+GROUP BY RefCurso; -- 4 PROGRA 300h
+
+UPDATE CURSOS
+SET Duracion = Duracion * 1.1
+WHERE RefCurso IN (
+    SELECT RefCurso
+    FROM V_CursoMatriculados
+    WHERE numMatriculados = (
+        SELECT max(numMatriculados)
+        FROM V_CursoMatriculados
+        )
+    );
+
+DROP VIEW V_CursoMatriculados;

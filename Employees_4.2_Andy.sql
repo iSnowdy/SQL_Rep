@@ -132,7 +132,7 @@ INSERT INTO `Employees` VALUES (100,'Steven','King','SKING','515.123.4567','1987
 
 SELECT * FROM Employees; -- 102 rows start
 
--- 1.
+-- 1. Incrementar el salario en un 10% para todos los empleados que Salary > 3000.00.
 
 SELECT FIRST_NAME, SALARY
 FROM Employees
@@ -142,7 +142,7 @@ UPDATE Employees
 SET Salary = Salary * 1.1
 WHERE SALARY < 3000.00;
 
--- 2.
+-- 2. Eliminar todos los empleados cuyo MANAGER_ID = 100 y DEP_ID = 50.
 
 SELECT *
 FROM Employees
@@ -156,7 +156,7 @@ WHERE MANAGER_ID = 100 AND DEPARTMENT_ID = 50;
 -- in the DDL here our only CONSTRAINT is a PRIMARY KEY. As there are no FOREIGN KEYS, we do not have to worry about
 -- enabling/disabling to not compromise integrity
 
--- 3.
+-- 3. Aumentar la comisión en 0.05 para los empleados comerciales cuyo JOB_ID = "SA_" y que fueron contratados en agosto de 1987.
 
 SELECT
     COMMISSION_PCT,
@@ -172,14 +172,16 @@ SET COMMISSION_PCT = COMMISSION_PCT + 0.05
 WHERE JOB_ID LIKE 'SA_%'
     AND HIRE_DATE BETWEEN '1987-08-01' AND '1987-08-31';
 
--- 4.
+-- 4. Mostrar el: First_Name, Last_Name, Phone_Number y Salary de aquellos empleados que Salary < 3000e y su JOB_ID = "ST_CLERK".
+-- Se deberán de asignar alias para cada columna. Deberá de estar ordenado por Salary en orden DESC.
 
 SELECT concat(LAST_NAME, ', ', FIRST_NAME) AS 'Employee Name', PHONE_NUMBER AS 'Employee Phone Number', SALARY AS 'Salary'
 FROM Employees
 WHERE SALARY < 3000.00 AND JOB_ID = 'ST_CLERK'
 ORDER BY SALARY DESC;
 
--- 5.
+-- 5. Mostrar el: First_Name, Last_Name y Hire_DATE de aquellos empleados que hayan sido contratados entre
+-- 1987-07-10 y 1987-09-10 del Department_ID = 50. Los resultados deben de estar ordenados por Hire_Date.
 
 SELECT
     FIRST_NAME AS 'First Name',
@@ -206,7 +208,7 @@ ORDER BY HIRE_DATE ASC;
 -- Both versions of the Query can be used. They produce the same result. However the second one is a bit easier
 -- to understand
 
--- 6.
+-- 6. Contar y mostrar todos los empleados que Salary > 10000.
 
 SELECT FIRST_NAME AS 'Employee Name', count(*) AS 'Quantity'
 FROM Employees
@@ -237,7 +239,7 @@ FROM Employees
 WHERE EMPLOYEE_ID = 207;
 */
 
--- 7.
+-- 7. Calcular la suma y media de los salarios de los empleados por departamento.
 
 SELECT
     DEPARTMENT_ID AS 'Department ID',
@@ -247,7 +249,7 @@ FROM employees
 GROUP BY DEPARTMENT_ID
 ORDER BY DEPARTMENT_ID DESC ;
 
--- 8.
+-- 8. Calcular el salario mínimo y máximo para cada tipo de trabajo (Job_ID) excluyendo Job_ID = "IT_PROG", "SA_MAN" & "SA_REP".
 
 SELECT
     JOB_ID AS 'Type of Work',
@@ -269,7 +271,7 @@ ORDER BY JOB_ID;
 -- You could also do a WHERE JOB_ID = ... but would have to repeat that as many times as JOB_ID's you want to
 -- not include. So doing it with a IN is a bit prettier
 
--- 9.
+-- 9. Listar los trabajos cuyo salario sea > $5000 ordenados por la media de los salarios totales
 
 SELECT
     JOB_ID AS 'Type of Work',
@@ -287,7 +289,9 @@ Also take into account that if we want to reference an alias using HAVING, it mu
 contains spaces then replace them with _
 */
 
--- 10.
+-- 10. Sacar: (1) el empleado con el salario más alto, (2) el empleado con el salario más bajo, (3) empleados cuyo
+-- salario coincide con la media de salarios de todos los empleados, (4) ¿cuántos empleados tienen un salario mayor que
+-- la media? ¿quiénes son? y (5) ¿cuántos menor que la media? ¿quiénes son?
 
 SELECT min(SALARY) AS 'Min', -- 2310
        max(SALARY) AS 'Max', -- 24000
@@ -349,7 +353,7 @@ WHERE SALARY < (
 -- Finally the 5th and 6th Querys shows how many employees have a salary above/below the average. This could already be seen
 -- in the third and fourth Querys (number of tuples), but this way it is a bit clearer
 
--- 11.
+-- 11. Suma y promedio de los salarios de cada JOB_ID
 
 SELECT
     JOB_ID AS 'Type of Work',

@@ -313,35 +313,55 @@ WHERE `Provincia` = 'Madrid';  -- Importante: repartidores DE Madrid
 
 /* 
 
-Para buscar sólo los medicamentos que se hayan distribuido en TODAS las farmacias de Santander, tenemos que hacer una igualación en el WHERE
-inicial para comparar. Tenemos 2 lados pues:
+Nos piden el nombre de los MEDICAMENTO, DISTRIBUIDOS a todas las FARMACIAS de Santander. Podemos ver por tanto
+que estaremos relacionando 3 tablas: REPARTOS (distribución de los medicamentos), MEDICAMENTOS, (para saber su
+nombre) y FARMACIA (la forma de interconectar las 2 tablas anteriores) y donde está la provincia.
 
-	1. Primero buscaremos los medicamentos que se han repartido en las farmacias de Santander.
-    Es importante buscar y contar sólo las farmacias diferentes (de ahí el DISTINCT).
-    El WHERE de este primer subquery busca sólo los medicamentos que coincidan tanto en medicamentos como en
-    la farmacia Y que estén en Santander en la tabla FARMACIAS
+Para lograr esto debemos de usar INNER JOIN's. Luego, nos interesan sólo las farmacias de Santander, de ahí el
+WHERE.
 
-    2. Luego el otro lado de la igualación lo que hace es simplemente contar la cantidad de farmacias que hay en Santander
-    y mira si son iguales
+El DISTINCT está ahí porque queremos las DIFERENTES/DISTINTAS farmacias en Santander a las que se ha distribuído
+cada medicamento. Luego las contamos con un count().
 
 */
 
-SELECT `Nombre`
-FROM `MEDICAMENTOS`
-WHERE (
-    SELECT count(DISTINCT `CodFarmacia`)
-    FROM `REPARTOS`
-    WHERE `CodMedicamento` = `CodMedicamento`
-    AND `CodFarmacia` IN (
-        SELECT `CodFarmacia`
-		FROM `FARMACIAS`
-        WHERE `Provincia` = 'SANTANDER'))
-= (
-    SELECT COUNT(*)
-    FROM `FARMACIAS`
-    WHERE `Provincia` = 'SANTANDER');
+/* Comprobación con INSERTS porque no existe Santander como Provincia :D
+INSERT INTO `FARMACIAS` (`Nombre`, `Dirección`, `Provincia`, `AnioApertura`)
+VALUES
+('SANTANDER TEST 01', NULL, 'SANTANDER', 1999),
+('SANTANDER TEST 02', NULL, 'SANTANDER', 2015);
 
--- Está mal :(
+INSERT INTO `REPARTOS` (`NIF_Repartidor`, `CodFarmacia`, `CodMedicamento`, `Fecha`, `Cantidad`)
+VALUES
+('1A', 6, 1, '2024-01-01', 10),
+('1A', 6, 1, '2024-01-02', 10),
+('1A', 7, 2, '2024-01-03', 10),
+('1A', 7, 2, '2024-01-04', 10);
+
+DELETE
+FROM REPARTOS
+WHERE CodFarmacia = 6 OR CodFarmacia = 7;
+
+DELETE
+FROM FARMACIAS
+WHERE CodFarmacia = 6 OR CodFarmacia = 7;
+
+SELECT * FROM REPARTOS;
+SELECT * FROM FARMACIAS;
+SELECT * FROM MEDICAMENTOS;
+SELECT * FROM REPARTIDORES;
+ */
+
+SELECT M.Nombre, count(DISTINCT F.CodFarmacia) AS 'Total Farmacias Distribuidas'
+FROM REPARTOS R
+INNER JOIN MEDICAMENTOS M
+    ON R.CodMedicamento = M.CodMedicamento
+INNER JOIN FARMACIAS F
+    ON R.CodFarmacia = F.CodFarmacia
+WHERE F.Provincia = 'SANTANDER'
+GROUP BY M.Nombre;
+
+-- No sé como hacerlo con el HAVING
 
 -- 16. Valor total de la mercancía distribuída por Luis García López
 
@@ -353,6 +373,7 @@ INNER JOIN REPARTIDORES r2
      ON r.NIF_Repartidor = r2.NIF
 WHERE r2.Nombre = 'LUIS' AND r2.Apellido1 = 'GARCÍA' AND r2.Apellido2 = 'LÓPEZ';
 
+-- Es <null> porque no hay repartido nada este señor. Me ha vuelto loco
 
 -- 17. Hallar el nombre del medicamente del que más unidades se han vendido
 

@@ -81,17 +81,11 @@ useful for JDBC?
     * 1452. Cannot add/update child row. Happens when we try to add/update a row that depends on a parent row and this
 parent row does not exist. Basically inside the FK's sack.
     * 2002. Connection to MySQL. Very useful when trying to call procedures from JDBC, for example.
-    *
-    *
-    *
-    *
-    *
-    *
 
 Sources:
 https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
 
- */
+*/
 
 
 USE `Staff_Example`;

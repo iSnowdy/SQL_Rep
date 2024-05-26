@@ -1,5 +1,7 @@
 /*
 
+DISCLAIMER: The creation of the Schema `Staff_Example` is in another .sql file; called Staff_Script and it is attached.
+
 We must create the procedures to accomplish a CRUD. Meaning, we need to create procedures that INSERT, SELECT, UPDATE &
 DELETE. Those procedures will have the following names:
 
@@ -91,8 +93,6 @@ https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
 
  */
 
- -- Crear procedimiento para ver si existen empleados con el sueldo igual al minimo, max, avg. Si existen, que devuelva
--- cuántos y cuál de cada uno. Si no, que devuelva 0 y cuáles son
 
 USE `Staff_Example`;
 SELECT * FROM department;
@@ -297,6 +297,11 @@ SELECT @test4;
 CALL crea_staff(0006, 'fkTests', 'Programmer',
                 5555, 08, '1999-5-21', 0413, @test5);
 SELECT @test5;
+
+CALL crea_staff(0001, 'Testings', 'Programmer', 5555.55, 8,
+                '2023-05-010', 413, @tests);
+
+SELECT @tests;
 
 DELETE FROM
            staff

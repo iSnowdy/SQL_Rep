@@ -198,6 +198,7 @@ WHERE `CodMedicamento` IN (
 			SELECT `CodFarmacia`
 			FROM `FARMACIAS`
 			WHERE `Provincia` <> 'MÁLAGA')));
+
 -- Y además luego excluímos al resto de provincias. Así sacamos los medicamentos que sólo se hayan repartido en Málaga
 
 -- 8. Número de repartos realizados por “Juan García López”
@@ -242,7 +243,7 @@ WHERE `CodMedicamento` IN (
         WHERE `Provincia` = 'MADRID' OR `Provincia` = 'BARCELONA'));
 
 -- Con UNION es básicamente lo mismo que se hizo antes pero AND -> UNION (y -> o).
--- En este caso sí se puede concatenar con un OR en la misma subquery porque es uno u otro; no ambos a la vez
+-- En este caso sí se puede concatenar con un OR en la misma Subquery porque es uno u otro; no ambos a la vez
 
 SELECT `Nombre`
 FROM `MEDICAMENTOS`
@@ -300,6 +301,7 @@ WHERE `NIF` = (
     GROUP BY `NIF_Repartidor`
     ORDER BY count(*) DESC
     LIMIT 1);
+
 -- El LIMIT 1 se ha de poner porque de lo contrario da error (devuelve más de 1 tupla).
 -- Además, queremos el máximo, el que más
 
@@ -325,7 +327,9 @@ cada medicamento. Luego las contamos con un count().
 
 */
 
-/* Comprobación con INSERTS porque no existe Santander como Provincia :D
+/*
+
+Comprobación con INSERTS porque no existe Santander como Provincia :D
 INSERT INTO `FARMACIAS` (`Nombre`, `Dirección`, `Provincia`, `AnioApertura`)
 VALUES
 ('SANTANDER TEST 01', NULL, 'SANTANDER', 1999),
@@ -350,7 +354,8 @@ SELECT * FROM REPARTOS;
 SELECT * FROM FARMACIAS;
 SELECT * FROM MEDICAMENTOS;
 SELECT * FROM REPARTIDORES;
- */
+
+*/
 
 SELECT M.Nombre, count(DISTINCT F.CodFarmacia) AS 'Total Farmacias Distribuidas'
 FROM REPARTOS R
@@ -360,8 +365,6 @@ INNER JOIN FARMACIAS F
     ON R.CodFarmacia = F.CodFarmacia
 WHERE F.Provincia = 'SANTANDER'
 GROUP BY M.Nombre;
-
--- No sé como hacerlo con el HAVING
 
 -- 16. Valor total de la mercancía distribuída por Luis García López
 

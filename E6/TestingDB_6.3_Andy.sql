@@ -225,7 +225,7 @@ this hour
 '
 BEGIN
 
-    IF hour(current_timestamp) >= 5 THEN -- (X) put hour here to test :)
+    IF hour(current_timestamp) = 5 THEN -- (X) put hour here to test :)
         CALL main_procedure_empty_TestDB();
     END IF;
 

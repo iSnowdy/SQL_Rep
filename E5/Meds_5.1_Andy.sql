@@ -137,8 +137,8 @@ HAVING Medicamentos_Total > 10;
 -- Query que busca por NIF los repartidores que hayan repartido entre esa fecha, los agrupa (para evitar repeticiones)
 -- y aplica otro filtro luego para que sólo aparezcan aquellos que han repartido más de 10 medicamentos en total
 
--- Ahora procederíamos a aplicar el UPDATE sobre el salario pero usando la SELECT anterior. No directamente sobre el NIF ese
--- 2B
+-- Ahora procederíamos a aplicar el UPDATE sobre el salario pero usando la SELECT anterior.
+-- No directamente sobre el NIF ese 2B
 
 UPDATE REPARTIDORES
 SET Sueldo = Sueldo * 1.1

@@ -189,6 +189,7 @@ INSERT INTO PRERREQUISITOS VALUE
 INSERT INTO EMPLEADOS VALUES
 ('546369458X', 'Anabel', 'Felicia', NULL, NULL, 100, 'MUJER', 'ESTUDIANTE'),
 ('876154687H', 'Miguelito', 'López', NULL, NULL, 100, 'HOMBRE', 'ESTUDIANTE');
+
 -- Un poco raro que salario se tenga que definir como NOT NULL teniendo en EMPLEADOS tanto PROFESORES como
 -- ALUMNOS
 
@@ -196,14 +197,12 @@ INSERT INTO MATRICULACIONES VALUE
 ('546369458X', 104),
 ('876154687H', 101);
 
-
 -- 10. Aumentar en 10 horas la duración de los cursos en cuyo título aparece “BASES DE DATOS”
 -- 100 / 60 -> 110 / 70
 
 UPDATE CURSOS
 SET Duracion = Duracion + 10
 WHERE Titulo LIKE '%BASES DE DATOS';
-
 
 -- 11. Aumentar el sueldo en un 10% a los empleados que han impartido más de diez cursos (pueden ser de ediciones diferentes),
 -- a. Utiliza GROUP BY en la tabla Ediciones para saber qué NIF_Docente ha impartido 2 o más cursos.
@@ -237,19 +236,21 @@ WHERE RefCurso NOT IN (
     ); -- 1 y 5
 
 /*
+
 Vemos que el Curso 1, uno de los cursos que no se imparten, es un prerrequisito obligatorio en la relación
 PRERREQUISITOS. Por tanto por la integridad referencial nos da un error por FK.
+
 Pero esto realmente no nos influye en nada realmente por ahora. El curso luego se podría volver a añadir cuando
-se imparta. No hace falta eliminar la tupla de PRERREQUISITOS. Pero algo debemos hacer para tratar con la integridad
-referencial.
+se imparta. No hace falta eliminar la tupla de PRERREQUISITOS. Pero algo debemos hacer para tratar con la
+integridad referencial.
 
 Hay varias formas de aplacar este problema. Entre ellas:
 
-1. Hacer un ALTER TABLE a PRERREQUISITOS, DROP a la FK que nos está dando problemas y luego otro
-ALTER TABLE para modificar la FK de forma que haga un ON DELETE CASCADE
-2. Hacer un SET 0 y 1 a la FOREIGN KEY. Esto, a diferencia de la forma previa, desactivará TODAS las FK
-de la base de datos; no sólo la de PRERREQUISITOS
-3. Borrar la tupla conflictiva de PRERREQUISITOS
+    1. Hacer un ALTER TABLE a PRERREQUISITOS, DROP a la FK que nos está dando problemas y luego otro
+    ALTER TABLE para modificar la FK de forma que haga un ON DELETE CASCADE
+    2. Hacer un SET 0 y 1 a la FOREIGN KEY. Esto, a diferencia de la forma previa, desactivará TODAS las FK
+    de la base de datos; no sólo la de PRERREQUISITOS
+    3. Borrar la tupla conflictiva de PRERREQUISITOS
 
 Optaremos por la opción 1. La opción 2 es un overkill. No necesitamos realmente desactivar TODAS las FK
 para hacer un único DELETE. La opción 3 en este caso a lo mejor sí es posible, pero con mayores cantidades
@@ -299,13 +300,16 @@ WHERE NIF IN (
         )
     ); -- 100 y 7162.29 antes
 
--- Seguimos el camino que podemos ver claramente en el diagrama generado por MySQL Workbench:
-    -- Nos interesa el NIF de la tabla Empleados. Pues es donde está el salario y de donde haremos el UPDATE.
-    -- A partir de aquí vemos cómo podemos enlazar las condiciones que nos piden: que haya impartido cursos con título
-    -- 'bases de datos'. Para poder llegar a los títulos, tendremos que terminar en la relación Cursos. Y la forma de
-    -- conectar EMPLEADOS con CURSOS es a través de Ediciones
+/* Seguimos el camino que podemos ver claramente en el diagrama generado por MySQL Workbench:
 
--- Tengo que bajarle el salario a uno de los NIF porqué sobrepasa el límite aaaaaaa
+    Nos interesa el NIF de la tabla Empleados. Pues es donde está el salario y de donde haremos el UPDATE.
+    A partir de aquí vemos cómo podemos enlazar las condiciones que nos piden: que haya impartido cursos con título
+    'bases de datos'. Para poder llegar a los títulos, tendremos que terminar en la relación Cursos. Y la forma de
+    conectar EMPLEADOS con CURSOS es a través de Ediciones
+
+Tengo que bajarle el salario a uno de los NIF porqué sobrepasa el límite aaaaaaa
+
+*/
 
 UPDATE EMPLEADOS
 SET Salario = Salario - 2000

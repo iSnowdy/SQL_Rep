@@ -36,7 +36,7 @@ read_staff (SELECT)
     * Parameters must be positive.
     * Cases where the IN parameter does not exist in the table.
     * Maybe restrict with what kind of values the User can do a search? Like he/she can look for Employee Code or
-    Salary, but he/she cannot filter by Job?
+    Salary, but he/she cannot filter by Job? <-- Too complex for MySQL programming. Leave it to an upper layer (Java)
 
 update_staff (UPDATE)
 
@@ -46,6 +46,7 @@ update_staff (UPDATE)
     * Check if the IN parameter actually exists in the table.
     * Adjust the Salary.
     * Concurrency! Try to handle this shit with TRANSACTIONS.
+    * Also add a way to get a message to show what changes were actually made (TRIGGER?)
 
 delete_staff (DELETE)
 
@@ -93,8 +94,8 @@ SELECT * FROM department;
 SELECT * FROM staff;
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS salarios_empleados $$
-CREATE PROCEDURE salarios_empleados(OUT output VARCHAR(666))
+DROP PROCEDURE IF EXISTS Salarios_Empleados $$
+CREATE PROCEDURE Salarios_Empleados(OUT output VARCHAR(666))
 BEGIN
 
     DECLARE min_salary DECIMAL(7,2);
@@ -132,7 +133,7 @@ BEGIN
 END $$
 DELIMITER ;
 
-CALL salarios_empleados(@resultado);
+CALL Salarios_Empleados(@resultado);
 SELECT @resultado;
 
 -- ----------------------------------------------------------------
@@ -147,8 +148,8 @@ DESC department;
 DESC staff;
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS min_max_salary $$
-CREATE PROCEDURE min_max_salary(OUT min_salary DECIMAL(7,2), OUT max_salary DECIMAL(7,2))
+DROP PROCEDURE IF EXISTS Min_Max_Salary $$
+CREATE PROCEDURE Min_Max_Salary(OUT min_salary DECIMAL(7,2), OUT max_salary DECIMAL(7,2))
 BEGIN
 
     START TRANSACTION;
@@ -163,12 +164,12 @@ BEGIN
 END $$
 DELIMITER ;
 
-CALL min_max_salary(@min, @max);
+CALL Min_Max_Salary(@min, @max);
 SELECT @min, @max;
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS crea_staff $$
-CREATE PROCEDURE crea_staff(IN emp_code SMALLINT UNSIGNED,
+DROP PROCEDURE IF EXISTS Crea_Staff $$
+CREATE PROCEDURE Crea_Staff(IN emp_code SMALLINT UNSIGNED,
                             IN emp_name VARCHAR(25),
                             IN emp_job VARCHAR(25),
                             IN emp_salary DECIMAL(7,2),
@@ -237,7 +238,7 @@ proc_label: BEGIN
         SET output = 'Start Date added as of TODAY ';
     END IF;
 
-    CALL min_max_salary(min_salary, max_salary);
+    CALL Min_Max_Salary(min_salary, max_salary);
     IF emp_salary < min_salary THEN
         SET emp_salary = min_salary;
         SET output = 'The Salary has been adjusted to the minimum possible ';
@@ -272,56 +273,19 @@ DELIMITER ;
 SELECT @min, @max;
 
 DESC staff;
-CALL crea_staff(0001, 'MartínezTest', 'Programmer',
+
+/*CALL Crea_Staff(0001, 'MartínezTest', 'Programmer',
                 5555.55, 08, '2024-05-25', 0413, @test1);
 SELECT @test1;
-
-CALL crea_staff(0001, 'MartíneSDzTest', 'Programmer',
-                5515.55, 08, '2022-05-25', @test2);
-SELECT @test2;
-
-CALL crea_staff(0003, 'JuanitoTest', 'Programmer',
-                99999, 08, '2024-05-25', 0413, @test3);
-SELECT @test3;
-
-CALL crea_staff(0005, 'ClaudiaTest', 'Programmer',
-                2, 08, '2024-05-25', 0413, @test4);
-SELECT @test4;
-
-CALL crea_staff(0006, 'fkTests', 'Programmer',
-                5555, 08, '1999-5-21', 0413, @test5);
-SELECT @test5;
-
-CALL crea_staff(0001, 'Testings', 'Programmer', 5555.55, 8,
-                '2023-05-010', 413, @tests);
-
-SELECT @tests;
-
-DELETE FROM
-           staff
-WHERE Employee_Code = 0001 OR Employee_Code = 0003 OR Employee_Code = 0002 OR Employee_Code = 0004
-   OR Employee_Code = 0005 OR Employee_Code = 0006;
-
-SELECT * FROM staff;
-SET @test1 = NULL;
-SET @test2 = NULL;
-SET @test3 = NULL;
-SET @test4 = NULL;
-SET @test5 = NULL;
-
-
-
-
-
-SELECT @output;
+SELECT * FROM staff;*/
 
 
 -- read_staff (SELECT)
 
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS read_staff $$
-CREATE PROCEDURE read_staff(INOUT emp_code SMALLINT UNSIGNED,
+DROP PROCEDURE IF EXISTS Read_Staff $$
+CREATE PROCEDURE Read_Staff(INOUT emp_code SMALLINT UNSIGNED,
                             OUT emp_name VARCHAR(25),
                             OUT emp_job VARCHAR(25),
                             OUT emp_salary DECIMAL(7,2),
@@ -368,24 +332,76 @@ proc_label: BEGIN
 
     SET output = 'Search has been successful';
 
-    -- The Where here is analyzing whether a parameter given is NULL or not. The 'OR' means something like
-    -- "if it is NOT NULL, then do a WHERE following the syntax: WHERE Employee_Code = emp_job, and so on
-
 END proc_label $$
 DELIMITER ;
 
-SET @code = 69;
-CALL read_staff(@code, @emp_code, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output);
-SELECT @code, @emp_code, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output;
+/*SET @code = 69;
+CALL Read_Staff(@code, @emp_name, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output);
+SELECT @code, @emp_name, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output;*/
 
 -- update_staff (UPDATE)
 
 -- https://stackoverflow.com/questions/6296313/mysql-trigger-after-update-only-if-row-has-changed
+/*
 
+Ook lets do some shenanigans here :) I don't want that the UPDATE procedure for the CRUD
+only modifies the table. I also want a way to register what has been changed, store those
+changes somewhere and then call from within the UPDATE procedure those changes and show it
+to the user by storing it in a variable.
+
+For this I think the best way would be to do something similar to what the Task 6.2 asks us.
+An audit table with a TRIGGER attached to it. This way the TRIGGER will fire if there are
+any changes ON UPDATE of the Staff table. Then it proceeds to store those changes in a new table
+created.
+
+However I think creating a whole new table is kind of an overkill for this. Soo instead I will
+just store the changes into a variable. Then call this variable from within the UPDATE procedure
+itself. That might work.
+
+*/
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS update_staff $$
-CREATE PROCEDURE update_staff(IN emp_code SMALLINT UNSIGNED,
+DROP TRIGGER IF EXISTS staff_update_trigger $$
+CREATE TRIGGER Staff_Update_Trigger
+AFTER UPDATE
+ON staff FOR EACH ROW
+BEGIN
+
+    DECLARE changesString VARCHAR(666);
+    SET changesString = '';
+    -- This caused me a few problems :D Unlike Java, if you don't start the SET it is empty when concatenated
+
+    -- Update Checkers
+    IF NEW.Employee_Code != OLD.Employee_Code THEN
+        SET changesString = concat(changesString, 'Employee Code changed from ', OLD.Employee_Code, ' to ', NEW.Employee_Code, '; ');
+    END IF;
+    IF NEW.Name != OLD.Name THEN
+        SET changesString = concat(changesString, 'Name changed from ', OLD.Name, ' to ', NEW.Name, '; ');
+    END IF;
+    IF NEW.Job != OLD.Job THEN
+        SET changesString = concat(changesString, 'Job changed from ', OLD.Job, ' to ', NEW.Job, '; ');
+    END IF;
+    IF NEW.Salary != OLD.Salary THEN
+        SET changesString = concat(changesString, 'Salary changed from ', OLD.Salary, ' to ', NEW.Salary, '; ');
+    END IF;
+    IF NEW.Department_Code != OLD.Department_Code THEN
+        SET changesString = concat(changesString, 'Department Code changed from ', OLD.Department_Code, ' to ', NEW.Department_Code, '; ');
+    END IF;
+    IF NEW.Start_Date != OLD.Start_Date THEN
+        SET changesString = concat(changesString, 'Start Date changed from ', OLD.Start_Date, ' to ', NEW.Start_Date, '; ');
+    END IF;
+    IF NEW.Superior_Officer != OLD.Superior_Officer THEN
+        SET changesString = concat(changesString, 'Superior Officer changed from ', OLD.Superior_Officer, ' to ', NEW.Superior_Officer, '; ');
+    END IF;
+
+    SET @changes = changesString;
+
+END $$
+DELIMITER ;
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Update_Staff $$
+CREATE PROCEDURE Update_Staff(IN emp_code SMALLINT UNSIGNED,
                               IN emp_name VARCHAR(25),
                               IN emp_job VARCHAR(25),
                               IN emp_salary DECIMAL(7,2),
@@ -393,11 +409,14 @@ CREATE PROCEDURE update_staff(IN emp_code SMALLINT UNSIGNED,
                               IN emp_start_date DATE,
                               IN sup_officer SMALLINT UNSIGNED,
                               OUT output VARCHAR(300),
-                              OUT changes VARCHAR(300))
+                              OUT changes VARCHAR(666))
 
 COMMENT
 '
-Part of a CRUD. UPDATE procedure that procures that the parameters given to UPDATE a certain tuple are valid
+Part of a CRUD. UPDATE procedure that procures that the parameters given to UPDATE a certain tuple are valid.
+It also gives 2 OUT messages. One to inform of possible errors or if the UPDATE was successful and then the second one
+shows the user what was exactly changed thanks to a TRIGGER attached to Staff that SETs a global variable and then
+is called from this procedure
 '
 
 proc_label: BEGIN
@@ -462,7 +481,7 @@ proc_label: BEGIN
         SET output = 'Start Date added as of TODAY ';
     END IF;
 
-    CALL min_max_salary(min_salary, max_salary);
+    CALL Min_Max_Salary(min_salary, max_salary);
     IF emp_salary < min_salary THEN
         SET emp_salary = min_salary;
         SET output = 'The Salary has been adjusted to the minimum possible ';
@@ -475,7 +494,7 @@ proc_label: BEGIN
         SET output = 'Salary has not been introduced. Please, update later on ';
     END IF;
 
-    -- If everything is OK until now, THEN we do the INSERT
+    -- If everything is OK until now, THEN we do the UPDATE
 
     START TRANSACTION;
 
@@ -495,64 +514,33 @@ proc_label: BEGIN
         SET output = 'Update of the Employee Successful';
     END IF;
     
-    -- Construction of what has been changed with the UPDATE. Reaaally ugly.
-    -- Consider changing this into an outer procedure or something
-    
-     IF (Employee_Code != emp_code) THEN
-		SET changes = concat(changes, ' New Employee Code: ', emp_code);
-    END IF;
-    
-    IF (Name != emp_name) THEN
-		SET changes = concat(changes, ' New Name: ', emp_name);
-    END IF;
-    
-    IF (Job != emp_job) THEN
-    	SET changes = concat(changes, ' New Job: ', emp_job);
-    END IF;
-    
-    IF (Salary != emp_salary) THEN
-		SET changes = concat(changes, ' New Salary: ', emp_salary);
-    END IF;
-    
-    IF (Department_Code != dp_code) THEN
-		SET changes = concat(changes, ' New Department Code: ', dp_code);
-    END IF;
-    
-    IF (Start_Date != emp_start_date) THEN
-		SET changes = concat(changes, ' New Start_Date: ', emp_start_date);
-    END IF;
-    
-    IF (Superior_Officer != sup_officer) THEN
-		SET changes = concat(changes, ' New Superior Officer: ', sup_officer);
-    END IF;
+    SET changes = @changes;
 
     COMMIT;
 
 END proc_label $$
 DELIMITER ;
 
-SELECT * FROM staff;
+/*SELECT * FROM staff;
 
-CALL update_staff(1, 'Matias', 'Programmer', 5645, 8, NULL, 413, @outs, @results);
-CALL crea_staff(2, 'Boss', 'Head', 9700, 12, '2023-04-02', 2, @outs2);
-CALL crea_staff(3, 'Boss', 'Head', 9700, 12, '2023-04-02', 3, @outs3);
-CALL crea_staff(4, 'Boss', 'Head', 9700, 12, '2023-04-02', 4, @outs4);
+SELECT @changes;
 
-CALL update_staff(4, 'TESTS', 'Programmer', 2, 5, NULL, 368, @outs4);
+CALL Update_Staff(1, 'Ferreiro', 'Analyst', 6666,
+                  8, NULL, 413, @outs, @results);
+CALL Crea_Staff(1, 'Tests', 'Head', 9100,
+                12, '2023-04-02', 368, @outs2);
 
+SELECT @outs2;
 SELECT @outs;
-SELECT @results;
-
-SELECT @outs2;
-SELECT @outs2;
-SELECT @outs4;
+SELECT @results;*/
 
 
 -- delete_staff (DELETE)
 
+
 DELIMITER $$
-DROP PROCEDURE IF EXISTS delete_staff $$
-CREATE PROCEDURE delete_staff(IN emp_code SMALLINT UNSIGNED, OUT output VARCHAR(300))
+DROP PROCEDURE IF EXISTS Delete_Staff $$
+CREATE PROCEDURE Delete_Staff(IN emp_code SMALLINT UNSIGNED, OUT output VARCHAR(300), OUT record VARCHAR(666))
 
 COMMENT
 '
@@ -560,7 +548,6 @@ Part of a CRUD. DELETE procedure that makes sure Referential Integrity is not co
 '
 
 proc_label: BEGIN
-
 
     DECLARE EXIT HANDLER FOR 1142
         BEGIN
@@ -589,6 +576,21 @@ proc_label: BEGIN
 
     START TRANSACTION;
 
+        SET @emp_code = emp_code;
+        CALL Read_Staff(@emp_code, @emp_name, @emp_job, @emp_salary,
+                        @dp_code, @emp_start_date, @sup_officer, @output);
+
+        SET record = '';
+        -- \n when MySQL please
+        SET record = concat('Deleted Employee Information ---> ',
+                            'Employee Code: ', @emp_code, ', ',
+                            'Name: ', @emp_name, ', ',
+                            'Job: ', @emp_job, ', ',
+                            'Salary: ', @emp_salary, ', ',
+                            'Department_Code: ', @dp_code, ', ',
+                            'Start_Date: ', @emp_start_date, ', ',
+                            'Superior_Officer: ', @sup_officer);
+
         DELETE
         FROM staff
         WHERE Employee_Code = emp_code;
@@ -600,10 +602,11 @@ proc_label: BEGIN
 END proc_label $$
 DELIMITER ;
 
-SELECT * FROM staff;
+/*SELECT * FROM staff;
+CALL Crea_Staff(1, 'Tests', 'Head', 9100,
+                12, '2023-04-02', 368, @outs2);
 SET FOREIGN_KEY_CHECKS = 1;
-CALL delete_staff(3, @deletes);
-CALL delete_staff(5, @deletes);
-CALL crea_staff(5, 'BossSon', 'Programmer', 8700, 8, '2023-04-02', 4, @outs5);
+CALL Delete_Staff(1, @deletes, @record);
+
 SELECT @deletes;
-SELECT @outs5;
+SELECT @record;*/

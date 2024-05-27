@@ -22,7 +22,8 @@ PRIMARY KEY (`EMPLOYEE_ID`),
 UNIQUE KEY `EMP_EMAIL_UK` (`EMAIL`)
 );
 
-INSERT INTO `Employees` VALUES (100,'Steven','King','SKING','515.123.4567','1987-06-17','AD_PRES',24000.00,0.00,0,90),
+INSERT INTO `Employees` VALUES
+(100,'Steven','King','SKING','515.123.4567','1987-06-17','AD_PRES',24000.00,0.00,0,90),
 (101,'Neena','Kochhar','NKOCHHAR','515.123.4568','1987-06-18','AD_VP',17000.00,0.00,100,90),
 (102,'Lex','De Haan','LDEHAAN','515.123.4569','1987-06-19','AD_VP',17000.00,0.00,100,90),
 (103,'Alexander','Hunold','AHUNOLD','590.423.4567','1987-06-20','IT_PROG',9000.00,0.00,102,60),
@@ -221,6 +222,7 @@ FROM Employees
 WHERE SALARY > 10000.00;
 
 /*
+
 This Query shows the First Name of the Employees who earn more than 10000.00 and also counts
 how many people with that same First Name earn that amount (thanks to the Group By).
 Since this is a small database, we don't have many names repeated. And even less people with a salary
@@ -237,6 +239,7 @@ INSERT INTO `Employees` VALUES (207,'Steven','Testing','Piss','525.123.4567','19
 DELETE
 FROM Employees
 WHERE EMPLOYEE_ID = 207;
+
 */
 
 -- 7. Calcular la suma y media de los salarios de los empleados por departamento.
@@ -282,11 +285,13 @@ HAVING Average_Salary > 5000.00
 ORDER BY 'Average Salary' ASC;
 
 /*
+
 Ok few things here. HAVING is used after the GROUP BY clause. It basically a filter, just like WHERE
 but applied after the GROUP BY
 
 Also take into account that if we want to reference an alias using HAVING, it must be without '' and if it
 contains spaces then replace them with _
+
 */
 
 -- 10. Sacar: (1) el empleado con el salario más alto, (2) el empleado con el salario más bajo, (3) empleados cuyo
@@ -304,8 +309,7 @@ SELECT
 FROM Employees
 WHERE Salary = (
     SELECT avg(SALARY)
-    FROM Employees
-    );
+    FROM Employees);
 
 SELECT
     EMPLOYEE_ID AS 'Employee ID',
@@ -314,8 +318,7 @@ SELECT
 FROM Employees
 WHERE Salary >= (
     SELECT avg(SALARY)
-    FROM Employees
-);
+    FROM Employees);
 
 SELECT
     EMPLOYEE_ID AS 'Employee ID',
@@ -324,8 +327,7 @@ SELECT
 FROM Employees
 WHERE Salary <= (
     SELECT avg(SALARY)
-    FROM Employees
-);
+    FROM Employees);
 
 
 SELECT COUNT(*) AS 'Employees with Salary Above Average'

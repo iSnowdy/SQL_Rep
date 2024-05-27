@@ -320,58 +320,20 @@ SELECT @output;
 
 
 DELIMITER $$
-DROP PROCEDURE IF EXISTS read_staff_dynamic $$
-CREATE PROCEDURE read_staff_dynamic(IN emp_code SMALLINT UNSIGNED,
-                            IN emp_name VARCHAR(25),
-                            IN emp_job VARCHAR(25),
-                            IN emp_start_date DATE,
-                            IN sup_officer SMALLINT UNSIGNED,
+DROP PROCEDURE IF EXISTS read_staff $$
+CREATE PROCEDURE read_staff(INOUT emp_code SMALLINT UNSIGNED,
+                            OUT emp_name VARCHAR(25),
+                            OUT emp_job VARCHAR(25),
+                            OUT emp_salary DECIMAL(7,2),
+                            OUT dp_code SMALLINT UNSIGNED,
+                            OUT emp_start_date DATE,
+                            OUT sup_officer SMALLINT UNSIGNED,
                             OUT output VARCHAR(300))
 
 COMMENT
 '
-Part of a CRUD. SELECT procedure that procures that data shown is correct
-'
-
-proc_label: BEGIN
-
-    DECLARE EXIT HANDLER FOR 1054
-        BEGIN
-            SET output = 'Error (1054): Column/Attribute does not exist';
-        END;
-
-    DECLARE EXIT HANDLER FOR 1146
-        BEGIN
-            SET output = 'Error (1146): Table does not exist';
-        END;
-
-    DECLARE EXIT HANDLER FOR 1142
-        BEGIN
-            SET output = 'Error (1142): You do not have enough privileges to do this';
-        END;
-
-    SELECT *
-    FROM staff
-    WHERE
-        (emp_code IS NULL OR Employee_Code = emp_code)
-        AND (emp_name IS NULL OR Name = emp_name)
-        AND (emp_job IS NULL OR Job = emp_job)
-        AND (emp_start_date IS NULL OR Start_Date = emp_start_date)
-        AND (sup_officer IS NULL OR Superior_Officer = sup_officer);
-
-    -- The Where here is analyzing whether a parameter given is NULL or not. The 'OR' means something like
-    -- "if it is NOT NULL, then do a WHERE following the syntax: WHERE Employee_Code = emp_job, and so on
-
-END proc_label $$
-DELIMITER ;
-
-DELIMITER $$
-DROP PROCEDURE IF EXISTS read_staff $$
-CREATE PROCEDURE read_staff(IN emp_code SMALLINT UNSIGNED, OUT output VARCHAR(300))
-
-COMMENT
-'
-Part of a CRUD. SELECT procedure that procures that data shown is correct
+Part of a CRUD. SELECT procedure that procures that data shown is correct and stores it
+in multiple variables
 '
 
 proc_label: BEGIN
@@ -398,7 +360,7 @@ proc_label: BEGIN
 
     START TRANSACTION;
 
-        SELECT *
+        SELECT * INTO emp_code, emp_name, emp_job, emp_salary, dp_code, emp_start_date, sup_officer
         FROM staff
         WHERE Employee_Code = emp_code;
 
@@ -412,8 +374,13 @@ proc_label: BEGIN
 END proc_label $$
 DELIMITER ;
 
+SET @code = 69;
+CALL read_staff(@code, @emp_code, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output);
+SELECT @code, @emp_code, @emp_job, @emp_salary, @dp_code, @emp_start_date, @sup_officer, @output;
 
 -- update_staff (UPDATE)
+
+-- https://stackoverflow.com/questions/6296313/mysql-trigger-after-update-only-if-row-has-changed
 
 
 DELIMITER $$
@@ -425,7 +392,8 @@ CREATE PROCEDURE update_staff(IN emp_code SMALLINT UNSIGNED,
                               IN dp_code SMALLINT UNSIGNED,
                               IN emp_start_date DATE,
                               IN sup_officer SMALLINT UNSIGNED,
-                              OUT output VARCHAR(300))
+                              OUT output VARCHAR(300),
+                              OUT changes VARCHAR(300))
 
 COMMENT
 '
@@ -526,6 +494,37 @@ proc_label: BEGIN
     ELSE
         SET output = 'Update of the Employee Successful';
     END IF;
+    
+    -- Construction of what has been changed with the UPDATE. Reaaally ugly.
+    -- Consider changing this into an outer procedure or something
+    
+     IF (Employee_Code != emp_code) THEN
+		SET changes = concat(changes, ' New Employee Code: ', emp_code);
+    END IF;
+    
+    IF (Name != emp_name) THEN
+		SET changes = concat(changes, ' New Name: ', emp_name);
+    END IF;
+    
+    IF (Job != emp_job) THEN
+    	SET changes = concat(changes, ' New Job: ', emp_job);
+    END IF;
+    
+    IF (Salary != emp_salary) THEN
+		SET changes = concat(changes, ' New Salary: ', emp_salary);
+    END IF;
+    
+    IF (Department_Code != dp_code) THEN
+		SET changes = concat(changes, ' New Department Code: ', dp_code);
+    END IF;
+    
+    IF (Start_Date != emp_start_date) THEN
+		SET changes = concat(changes, ' New Start_Date: ', emp_start_date);
+    END IF;
+    
+    IF (Superior_Officer != sup_officer) THEN
+		SET changes = concat(changes, ' New Superior Officer: ', sup_officer);
+    END IF;
 
     COMMIT;
 
@@ -534,7 +533,7 @@ DELIMITER ;
 
 SELECT * FROM staff;
 
-CALL update_staff(6, 'NewName', 'Programmer', 6666, 8, NULL, 413, @outs);
+CALL update_staff(1, 'Matias', 'Programmer', 5645, 8, NULL, 413, @outs, @results);
 CALL crea_staff(2, 'Boss', 'Head', 9700, 12, '2023-04-02', 2, @outs2);
 CALL crea_staff(3, 'Boss', 'Head', 9700, 12, '2023-04-02', 3, @outs3);
 CALL crea_staff(4, 'Boss', 'Head', 9700, 12, '2023-04-02', 4, @outs4);
@@ -542,6 +541,8 @@ CALL crea_staff(4, 'Boss', 'Head', 9700, 12, '2023-04-02', 4, @outs4);
 CALL update_staff(4, 'TESTS', 'Programmer', 2, 5, NULL, 368, @outs4);
 
 SELECT @outs;
+SELECT @results;
+
 SELECT @outs2;
 SELECT @outs2;
 SELECT @outs4;

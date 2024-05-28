@@ -95,7 +95,7 @@ DROP TABLE IF EXISTS `TESTING_DEPT_MANAGER`;
 CREATE TABLE IF NOT EXISTS `TESTING_DEPT_MANAGER` (
     `Emp_No` INT NOT NULL,
     `Dept_No` CHAR(4) NOT NULL,
-    -- `From_Date` DATE NOT NULL, We are not interested in the historic
+    `From_Date` DATE NOT NULL,
     `To_Date` DATE NOT NULL,
     FOREIGN KEY (Emp_No) REFERENCES TESTING_EMPLOYEES(Emp_No) ON DELETE CASCADE,
     FOREIGN KEY (Dept_No) REFERENCES TESTING_DEPARTMENTS(Dept_No) ON DELETE CASCADE,
@@ -110,7 +110,7 @@ DROP TABLE IF EXISTS `TESTING_DEPT_EMP`;
 CREATE TABLE IF NOT EXISTS `TESTING_DEPT_EMP` (
     `Emp_No` INT NOT NULL,
     `Dept_No` CHAR(4) NOT NULL,
-    -- `From_Date` DATE NOT NULL, We are not interested in the historic
+    `From_Date` DATE NOT NULL,
     `To_Date` DATE NOT NULL,
     FOREIGN KEY (Emp_No) REFERENCES TESTING_EMPLOYEES(Emp_No) ON DELETE CASCADE,
     FOREIGN KEY (Dept_No) REFERENCES TESTING_DEPARTMENTS(Dept_No) ON DELETE CASCADE,
@@ -125,7 +125,7 @@ DROP TABLE IF EXISTS `TESTING_TITLES`;
 CREATE TABLE IF NOT EXISTS `TESTING_TITLES` (
     `Emp_No` INT NOT NULL,
     `Title` VARCHAR(50) NOT NULL,
-    -- `From_Date` DATE NOT NULL, We are not interested in the historic
+    `From_Date` DATE NOT NULL,
     `To_Date` DATE,
     FOREIGN KEY (Emp_No) REFERENCES TESTING_EMPLOYEES(Emp_No) ON DELETE CASCADE,
     PRIMARY KEY (Emp_No, Title)
@@ -139,7 +139,7 @@ DROP TABLE IF EXISTS `TESTING_SALARIES`;
 CREATE TABLE IF NOT EXISTS `TESTING_SALARIES` (
     `Emp_No` INT NOT NULL,
     `Salary` INT NOT NULL,
-    -- `From_Date` DATE NOT NULL, We are not interested in the historic
+    `From_Date` DATE NOT NULL,
     `To_Date` DATE NOT NULL,
     FOREIGN KEY (Emp_No) REFERENCES TESTING_EMPLOYEES(Emp_No) ON DELETE CASCADE,
     PRIMARY KEY (Emp_No)
@@ -201,17 +201,44 @@ BEGIN
 
     START TRANSACTION;
 
-        SET FOREIGN_KEY_CHECKS = 0; -- disabling FK's
-
         DELETE FROM TESTING_EMPLOYEES;
         DELETE FROM TESTING_DEPARTMENTS; -- *insert ON DELETE CASCADE meme*
 
-        SET FOREIGN_KEY_CHECKS = 1; -- enabling FK's again
+        SET @testing_delete = concat('The delete procedure has been fired at ', current_timestamp);
+
     -- ROLLBACK;
     COMMIT;
 
 END $$
+DELIMITER ;
 
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS main_procedure_fill_TestDB $$
+CREATE PROCEDURE main_procedure_fill_TestDB()
+COMMENT
+'
+Procedure that INSERTS all the data we are interested in
+the Testing_DB
+'
+BEGIN
+    -- Call everything here
+
+    START TRANSACTION;
+
+    CALL Departments();
+    CALL Active_Employees();
+    CALL Active_Department_Employees();
+    CALL Active_Manager_Employees();
+    CALL Active_Employees_Titles();
+    CALL Active_Employees_Salaries();
+
+    SET @testing_fill = concat('The fill procedure has been fired at ', current_timestamp);
+
+    -- ROLLBACK;
+    COMMIT;
+
+END $$
 DELIMITER ;
 
 
@@ -225,20 +252,25 @@ this hour
 '
 BEGIN
 
-    IF hour(current_timestamp) = 5 THEN -- (X) put hour here to test :)
+    IF hour(current_timestamp) = 23 THEN -- (X) put hour here to test :) + works. I tested it
         CALL main_procedure_empty_TestDB();
+        CALL main_procedure_fill_TestDB();
+        SET @timer_procedure = concat('The checker time procedure has been fired at ', current_timestamp);
     END IF;
 
 END $$
-
 DELIMITER ;
+
+
+-- ON SCHEDULE EVERY 1 DAY STARTS CURRENT_DATE() + INTERVAL 5 HOUR
+-- ON SCHEDULE EVERY 1 DAY STARTS '2024-05-28 05:00:00'
 
 
 DELIMITER $$
 DROP EVENT IF EXISTS Empty_Testing_DB $$
 CREATE EVENT Empty_Testing_DB
-ON SCHEDULE EVERY 1 HOUR
-    STARTS now() -- STARTS now()
+ON SCHEDULE EVERY 1 MINUTE
+
 COMMENT
 '
 This event will call the procedure within it every hour starting the moment it is created.
@@ -249,11 +281,49 @@ to execute: the deletion of everything inside the Testing_DB
 DO
     BEGIN
         CALL check_time();
+        SET @event_tester = concat('The event has been fired at ', current_timestamp);
     END $$
-
 DELIMITER ;
 
 -- Sooo this *should* work :smileyface:
+
+SHOW VARIABLES LIKE 'event_scheduler';
+SHOW events;
+ALTER EVENT Empty_Testing_DB DISABLE; -- It deleted all my information by mistakes. Nice \o/
+ALTER EVENT Empty_Testing_DB ENABLE;
+
+CALL check_time();
+
+SELECT @testing_delete; --
+SELECT @testing_fill; --
+-- SELECT @testing_timer_procedure;
+SELECT @timer_procedure;
+SELECT @event_tester;
+
+SET @testing_delete = NULL;
+SET @testing_fill = NULL;
+-- SET @testing_timer_procedure = NULL;
+SET @timer_procedure = NULL;
+SET @event_tester = NULL;
+
+SELECT now();
+SELECT current_timestamp;
+
+SELECT * FROM Testing_BigEmployees_DB.testing_employees;
+SELECT * FROM Testing_BigEmployees_DB.testing_departments;
+SELECT * FROM Testing_BigEmployees_DB.testing_dept_emp;
+SELECT * FROM Testing_BigEmployees_DB.testing_dept_manager;
+SELECT * FROM Testing_BigEmployees_DB.testing_titles;
+SELECT * FROM Testing_BigEmployees_DB.testing_salaries;
+
+DELETE FROM TESTING_EMPLOYEES;
+DELETE FROM TESTING_DEPARTMENTS;
+delete from testing_dept_emp;
+DELETE FROM TESTING_DEPT_MANAGER;
+DELETE FROM TESTING_TITLES;
+DELETE FROM TESTING_SALARIES;
+
+SHOW VARIABLES LIKE 'foreign_key_checks';
 
 /*
 
@@ -267,81 +337,299 @@ Think of a way to actually accomplish this.
 Possible strategy:
 
     - Design the SELECTs for each attribute.
-    - Modify those SELECTs into a procedure.
+    - Modify those SELECTs into a procedure. Potentially with a CURSOR?
     - Fit in those procedure into the EVENT / another "main" procedure.
     - Work around to trigger the second event only after the first one is fired. Safety mechanism sort of? How?
 
+CURSORS in MySQL is like iterating through a List, for example, in Java. It sequentially traverses the tuples
+that we specify it to. It is extremely useful when we need to process information from tuples one by one.
+
+CURSORS are also very useful in stored procedures. It allows to add an extra layer of logic to the procedures, making
+them even more useful.
+
+For example. We could have a procedure that manages the salaries of the employees somehow. Since each employee has a
+salary, every tuple must be iterated one by one. For this we would need a CURSOR. Like for example if we wanted to give
+a raise to certain employees (for example a seniority bonus raise in their salary) we would build a CURSOR
+that UPDATES every tuple WHERE the Hire_Date < X and SETs the Salary to the provided raise. Very useful :D
+
 */
+
+-- Order: departments, employees, dept_emp, dept_manager, titles, salaries
+
 
 SET @examples = current_timestamp;
 SELECT @examples;
 
--- Dept_Emp
-SELECT *
-FROM big_employees_db.dept_emp
-WHERE To_Date = '9999-01-01'
-ORDER BY To_Date DESC ; -- 331.603 -> 240.124
 
-SELECT * FROM big_employees_db.dept_emp;
+-- ----------------------------------------------------------------
+-- Department PROCEDURE
+-- ----------------------------------------------------------------
 
--- Dept_manager
-SELECT *
-FROM big_employees_db.dept_manager
-WHERE To_Date = '9999-01-01'
-ORDER BY To_Date DESC ; -- 24 -> 9
 
-SELECT * FROM big_employees_db.dept_manager;
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Departments $$
+CREATE PROCEDURE Departments()
+COMMENT
+'
+CURSOR that fetches all Departments (with no filter, there is no need to
+apply one here since it has no historic) and INSERTS it into our Testing DB
+'
+BEGIN
 
--- Employees
+    DECLARE dept_no_local CHAR(4);
+    DECLARE dept_name_local VARCHAR(40);
+
+    DECLARE Cursor_Department CURSOR FOR
+        SELECT *
+        FROM big_employees_db.departments;
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+    BEGIN
+
+        CLOSE Cursor_Department;
+
+    END;
+
+    OPEN Cursor_Department;
+    LOOP
+
+        FETCH Cursor_Department INTO
+            dept_no_local, dept_name_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_departments VALUES
+            (dept_no_local, dept_name_local);
+
+    END LOOP;
+
+END $$
+DELIMITER ;
+
+CALL Departments(); -- 17ms + works (9 tuples)
+
+DESC big_employees_db.departments;
+DESC Testing_BigEmployees_DB.testing_departments;
+SELECT * FROM big_employees_db.departments;
+SELECT * FROM Testing_BigEmployees_DB.testing_departments;
+
+
+-- ----------------------------------------------------------------
+-- Employees SELECT & PROCEDURE
+-- ----------------------------------------------------------------
+
+
 SELECT e.*
 FROM big_employees_db.employees e
-INNER JOIN big_employees_db.dept_emp e2
-    ON e.Emp_No = e2.Emp_No
-           AND e2.To_Date = '9999-01-01'
+         INNER JOIN big_employees_db.dept_emp e2
+                    ON e.Emp_No = e2.Emp_No
+                        AND e2.To_Date = '9999-01-01'
 
 UNION
 
 SELECT e.*
 FROM big_employees_db.employees e
-INNER JOIN big_employees_db.dept_manager e3
-    ON e.Emp_No = e3.Emp_No
-            AND e3.To_Date = '9999-01-01'; -- 300.024 -> 240.124
+         INNER JOIN big_employees_db.dept_manager e3
+                    ON e.Emp_No = e3.Emp_No
+                        AND e3.To_Date = '9999-01-01'; -- 300.024 -> 240.124
 
 
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Active_Employees $$
+CREATE PROCEDURE IF NOT EXISTS Active_Employees() -- Consider having an OUT?
+COMMENT
+'
+CURSOR with the purpose of SELECTING each tuple after the filter and then
+INSERTING it into the Testing_DB
+'
+
+BEGIN
+
+    DECLARE emp_no_local INT;
+    DECLARE birth_date_local DATE;
+    DECLARE first_name_local VARCHAR(14);
+    DECLARE last_name_local VARCHAR(16);
+    DECLARE gender_local ENUM('M', 'F');
+    DECLARE hire_date_local DATE;
+
+    -- CURSOR creation \o/
+    DECLARE Cursor_Active_Employees CURSOR FOR
+        SELECT e.*
+        FROM big_employees_db.employees e
+                 INNER JOIN big_employees_db.dept_emp e2
+                            ON e.Emp_No = e2.Emp_No
+                                AND e2.To_Date = '9999-01-01'
+
+        UNION
+
+        SELECT e.*
+        FROM big_employees_db.employees e
+                 INNER JOIN big_employees_db.dept_manager e3
+                            ON e.Emp_No = e3.Emp_No
+                                AND e3.To_Date = '9999-01-01';
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+        BEGIN
+
+            CLOSE Cursor_Active_Employees; -- Prevents going out of range basically. Like iterating through an Array
+
+        END;
+
+    OPEN Cursor_Active_Employees;
+    LOOP
+
+        FETCH Cursor_Active_Employees INTO -- "Grabs" the values and INSERTS them into those variables
+            emp_no_local, birth_date_local, first_name_local,
+            last_name_local, gender_local, hire_date_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_employees VALUES
+            (emp_no_local, birth_date_local, first_name_local,
+             last_name_local, gender_local, hire_date_local);
+
+    END LOOP;
+
+END $$
+DELIMITER ;
+
+CALL Active_Employees(); -- 2min50s + works (240.124 tuples)
+
+DESC big_employees_db.employees;
+DESC Testing_BigEmployees_DB.testing_employees;
 SELECT * FROM big_employees_db.employees;
+SELECT * FROM Testing_BigEmployees_DB.testing_employees;
 
-SELECT * FROM big_employees_db.departments;
 
-SELECT *
+/*SELECT *
 FROM big_employees_db.employees
 WHERE Emp_No NOT IN (
     SELECT dept_emp.Emp_No
     FROM big_employees_db.dept_emp
-    );
+    );*/
 
--- Salaries
 
-SELECT * FROM big_employees_db.salaries;
+-- ----------------------------------------------------------------
+-- Department Employee SELECT & PROCEDURE
+-- ----------------------------------------------------------------
+
 
 SELECT *
-FROM big_employees_db.salaries s
-WHERE To_Date = '9999-01-01'
-    AND s.Emp_No IN (
-        SELECT e1.Emp_No
-        FROM big_employees_db.dept_emp e1
-        WHERE e1.To_Date = '9999-01-01'
-
-        UNION
-
-        SELECT e2.Emp_No
-        FROM big_employees_db.dept_manager e2
-        WHERE e2.To_Date = '9999-01-01'
-    ); -- -> 2.844.047 -> 240.124
+FROM big_employees_db.dept_emp
+WHERE To_Date = '9999-01-01'; -- 331.603 -> 240.124
 
 
--- Titles
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Active_Department_Employees $$
+CREATE PROCEDURE Active_Department_Employees()
+COMMENT
+'
+Cursor with the purpose of SELECTING each tuple after the filter is applied
+and then INSERTING it into our Testing_DB
+'
 
-SELECT * FROM big_employees_db.titles;
+BEGIN
+
+    DECLARE emp_no_local INT;
+    DECLARE dept_no_local CHAR(4);
+    DECLARE from_date_local DATE;
+    DECLARE to_date_local DATE;
+
+    DECLARE Cursor_Active_Employee_Department CURSOR FOR
+        SELECT *
+        FROM big_employees_db.dept_emp
+        WHERE To_Date = '9999-01-01';
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+        BEGIN
+
+            CLOSE Cursor_Active_Employee_Department;
+
+        END;
+
+    OPEN Cursor_Active_Employee_Department;
+    LOOP
+
+        FETCH Cursor_Active_Employee_Department INTO
+            emp_no_local, dept_no_local, from_date_local, to_date_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_dept_emp VALUES
+            (emp_no_local, dept_no_local, from_date_local, to_date_local);
+
+    END LOOP;
+
+
+END $$
+DELIMITER ;
+
+CALL Active_Department_Employees(); -- 2min51s + works (240.124 tuples)
+
+DESC big_employees_db.dept_emp;
+DESC Testing_BigEmployees_DB.testing_dept_emp;
+SELECT * FROM big_employees_db.dept_emp;
+SELECT * FROM Testing_BigEmployees_DB.testing_dept_emp;
+
+
+-- ----------------------------------------------------------------
+-- Department Manager SELECT & PROCEDURE
+-- ----------------------------------------------------------------
+
+
+SELECT *
+FROM big_employees_db.dept_manager
+WHERE To_Date = '9999-01-01'; -- 24 -> 9
+
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Active_Manager_Employees $$
+CREATE PROCEDURE Active_Manager_Employees()
+COMMENT
+'
+CURSOR with the purpose of SELECTING every tuple that has the applied
+filter and then INSERTING it into our Testing_DB
+'
+
+BEGIN
+
+    DECLARE emp_no_local INT;
+    DECLARE dept_no_local CHAR(4);
+    DECLARE from_date_local DATE;
+    DECLARE to_date_local DATE;
+
+    DECLARE Cursor_Active_Manager_Employees CURSOR FOR
+        SELECT *
+        FROM big_employees_db.dept_manager
+        WHERE To_Date = '9999-01-01';
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+        BEGIN
+
+            CLOSE Cursor_Active_Manager_Employees;
+
+        END;
+
+    OPEN Cursor_Active_Manager_Employees;
+    LOOP
+
+        FETCH Cursor_Active_Manager_Employees INTO
+            emp_no_local, dept_no_local, from_date_local, to_date_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_dept_manager VALUES
+            (emp_no_local, dept_no_local, from_date_local, to_date_local);
+
+    END LOOP;
+
+END $$
+DELIMITER ;
+
+CALL Active_Manager_Employees(); -- 42 ms + works (9 tuples)
+
+DESC big_employees_db.dept_manager;
+DESC Testing_BigEmployees_DB.testing_dept_manager;
+SELECT * FROM big_employees_db.dept_manager;
+SELECT * FROM Testing_BigEmployees_DB.testing_dept_manager;
+
+
+-- ----------------------------------------------------------------
+-- Titles SELECT & PROCEDURE
+-- ----------------------------------------------------------------
+
 
 SELECT *
 FROM big_employees_db.titles t
@@ -357,3 +645,143 @@ WHERE To_Date = '9999-01-01'
         FROM big_employees_db.dept_manager e2
         WHERE e2.To_Date = '9999-01-01'
     ); -- 443.308 -> 240.124
+
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Active_Employees_Titles $$
+CREATE PROCEDURE Active_Employees_Titles()
+COMMENT
+'
+Procedure with a cursor that fetches the titles of those employees
+that are considered active. Meaning those who To_Date = "9999-01-01"
+(criteria that the company itself uses) and INSERTS it into our
+Testing_DB
+'
+
+BEGIN
+
+    DECLARE emp_no_local INT;
+    DECLARE title_local VARCHAR(50);
+    DECLARE from_date_local DATE;
+    DECLARE to_date_local DATE;
+
+    DECLARE Cursor_Active_Employees_Titles CURSOR FOR
+        SELECT *
+        FROM big_employees_db.titles t
+        WHERE To_Date = '9999-01-01'
+            AND t.Emp_No IN (
+                SELECT e1.Emp_No
+                FROM big_employees_db.dept_emp e1
+                WHERE e1.To_Date = '9999-01-01'
+
+                UNION
+
+                SELECT e2.Emp_No
+                FROM big_employees_db.dept_manager e2
+                WHERE e2.To_Date = '9999-01-01'
+        );
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+        BEGIN
+
+            CLOSE Cursor_Active_Employees_Titles;
+
+        END;
+
+    OPEN Cursor_Active_Employees_Titles;
+    LOOP
+
+        FETCH Cursor_Active_Employees_Titles INTO
+            emp_no_local, title_local, from_date_local, to_date_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_titles VALUES
+            (emp_no_local, title_local, from_date_local, to_date_local);
+
+    END LOOP;
+
+END $$
+DELIMITER ;
+
+CALL Active_Employees_Titles(); -- 2min50s + works (240.124 tuples)
+
+DESC big_employees_db.titles;
+DESC Testing_BigEmployees_DB.testing_titles;
+SELECT * FROM big_employees_db.titles;
+SELECT * FROM Testing_BigEmployees_DB.testing_titles;
+
+
+-- ----------------------------------------------------------------
+-- Salaries SELECT & PROCEDURE
+-- ----------------------------------------------------------------
+
+
+SELECT *
+FROM big_employees_db.salaries s
+WHERE To_Date = '9999-01-01'
+    AND s.Emp_No IN (
+        SELECT e1.Emp_No
+        FROM big_employees_db.dept_emp e1
+        WHERE e1.To_Date = '9999-01-01'
+
+        UNION
+
+        SELECT e2.Emp_No
+        FROM big_employees_db.dept_manager e2
+        WHERE e2.To_Date = '9999-01-01'); -- -> 2.844.047 -> 240.124
+
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS Active_Employees_Salaries $$
+CREATE PROCEDURE Active_Employees_Salaries()
+COMMENT
+'
+Procedure with a cursor that fetches the employees that are considered active
+and then stores the salaries information into our Testing_DB
+'
+BEGIN
+
+    DECLARE emp_no_local INT;
+    DECLARE salary_local INT;
+    DECLARE from_date_local, to_date_local DATE;
+
+    DECLARE Cursor_Active_Employees_Salaries CURSOR FOR
+        SELECT *
+        FROM big_employees_db.salaries s
+        WHERE To_Date = '9999-01-01'
+            AND s.Emp_No IN (
+                SELECT e1.Emp_No
+                FROM big_employees_db.dept_emp e1
+                WHERE e1.To_Date = '9999-01-01'
+
+                UNION
+
+                SELECT e2.Emp_No
+                FROM big_employees_db.dept_manager e2
+                WHERE e2.To_Date = '9999-01-01');
+
+    DECLARE EXIT HANDLER FOR NOT FOUND
+        BEGIN
+
+            CLOSE Cursor_Active_Employees_Salaries;
+
+        END;
+
+    OPEN Cursor_Active_Employees_Salaries;
+    LOOP
+
+        FETCH Cursor_Active_Employees_Salaries INTO emp_no_local, salary_local, from_date_local, to_date_local;
+
+        INSERT INTO Testing_BigEmployees_DB.testing_salaries VALUES
+            (emp_no_local, salary_local, from_date_local, to_date_local);
+
+    END LOOP;
+
+END $$
+DELIMITER ;
+
+CALL Active_Employees_Salaries(); -- 2min44s + works (240.124 tuples)
+
+DESC big_employees_db.salaries;
+DESC Testing_BigEmployees_DB.testing_salaries;
+SELECT * FROM big_employees_db.salaries;
+SELECT * FROM Testing_BigEmployees_DB.testing_salaries;

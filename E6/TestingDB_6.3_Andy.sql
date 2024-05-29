@@ -35,7 +35,6 @@ date is also '9999-01-01'.
 
 */
 
-USE big_employees_db;
 
 SELECT * FROM big_employees_db.employees;
 SELECT * FROM big_employees_db.DEPARTMENTS;
@@ -264,12 +263,14 @@ DELIMITER ;
 
 -- ON SCHEDULE EVERY 1 DAY STARTS CURRENT_DATE() + INTERVAL 5 HOUR
 -- ON SCHEDULE EVERY 1 DAY STARTS '2024-05-28 05:00:00'
+-- ON SCHEDULE EVERY 1 MINUTE
 
+-- Now it works. It needed a bigger INTERVAL between triggers for the Event
 
 DELIMITER $$
-DROP EVENT IF EXISTS Empty_Testing_DB $$
+DROP EVENT IF EXISTS Empty_Testing_DB;
 CREATE EVENT Empty_Testing_DB
-ON SCHEDULE EVERY 1 MINUTE
+ON SCHEDULE EVERY 1 HOUR STARTS now()
 
 COMMENT
 '
@@ -279,20 +280,35 @@ only then it will be called. This call will at the same time call the main proce
 to execute: the deletion of everything inside the Testing_DB
 '
 DO
-    BEGIN
-        CALL check_time();
-        SET @event_tester = concat('The event has been fired at ', current_timestamp);
-    END $$
+BEGIN
+
+    CALL check_time();
+
+    INSERT INTO `test_event`(`Fecha`) VALUES(now());
+    SET @event_tester = concat('The event has been fired at ', current_timestamp);
+
+END $$
 DELIMITER ;
 
--- Sooo this *should* work :smileyface:
+DROP TABLE IF EXISTS `test_event`;
+CREATE TABLE `test_event` (
+    `ID` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `Fecha` DATETIME
+);
 
+SELECT * FROM test_event;
+
+SHOW ERRORS;
+
+SHOW PROCESSLIST;
 SHOW VARIABLES LIKE 'event_scheduler';
+SET GLOBAL event_scheduler = ON;
 SHOW events;
+SELECT * FROM INFORMATION_SCHEMA.events;
 ALTER EVENT Empty_Testing_DB DISABLE; -- It deleted all my information by mistakes. Nice \o/
 ALTER EVENT Empty_Testing_DB ENABLE;
 
-CALL check_time();
+CALL check_time(); --
 
 SELECT @testing_delete; --
 SELECT @testing_fill; --
@@ -316,9 +332,11 @@ SELECT * FROM Testing_BigEmployees_DB.testing_dept_manager;
 SELECT * FROM Testing_BigEmployees_DB.testing_titles;
 SELECT * FROM Testing_BigEmployees_DB.testing_salaries;
 
+
+
 DELETE FROM TESTING_EMPLOYEES;
 DELETE FROM TESTING_DEPARTMENTS;
-delete from testing_dept_emp;
+DELETE FROM TESTING_DEPT_EMP;
 DELETE FROM TESTING_DEPT_MANAGER;
 DELETE FROM TESTING_TITLES;
 DELETE FROM TESTING_SALARIES;
